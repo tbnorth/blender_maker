@@ -67,22 +67,24 @@ def translate(obj, vect):
 def what(obj, text):
     print("%s\n%s" % (text, '%'*20))
     get_data = lambda: [
-        str(obj.location),
-        str(obj.matrix_world),
-        str(obj.dimensions),
-        ' '.join([str(obj.bound_box[i][j]) for i in range(8) for j in range(3)]),
-        str(obj.data.vertices[0].co),
+        'LOC:'+str(obj.location),
+        'WLD:'+str(obj.matrix_world),
+        'DIM:'+str(obj.dimensions),
+        'BBX:'+' '.join([str(obj.bound_box[i][j]) for i in range(4) for j in range(3)]),
+        '    '+' '.join([str(obj.bound_box[i][j]) for i in range(4,8) for j in range(3)]),
+        'CO0:'+str(obj.data.vertices[0].co),
     ]
     ans0 = get_data()
     bpyscene.update()
     ans1 = get_data()
-    if ans0 != ans1:
-        print("BEFORE")
-        print('\n'.join(ans0))
-        print("AFTER")
-    print('\n'.join(ans1))
-    print('\n')
-    
+    for t0, t1 in zip(ans0, ans1):
+        if t0 == t1:
+            print('  '+t0)
+        else:
+            print('- '+t0)
+            print('+ '+t1)
+    print()
+
 reset_blend()
 basic_cube = new_obj()
 obj_add(basic_cube)
