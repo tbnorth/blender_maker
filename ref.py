@@ -8,20 +8,6 @@ exec(open(r"u:\repo\drifter\cad\ref.py").read())
 
 bpyscene = bpy.context.scene
 
-OREL = {
-    'bottom_corners': [
-        (0, 0, 0), (0, 1, 0), (1, 0, 0), (1, 1, 0),
-    ],
-}   
-
-def rel_coords(obj, orel):
-    return [
-        (obj.location.x + i[0]*obj.dimensions.x,     
-         obj.location.y + i[1]*obj.dimensions.y,     
-         obj.location.z + i[2]*obj.dimensions.z)
-        for i in OREL[orel]
-    ]    
-
 def reset_blend():
 
     for scene in bpy.data.scenes:
@@ -53,37 +39,26 @@ def obj_add(obj):
     bm.to_mesh(obj.data)
     bm.free()
 
-def clip_with(obj, clip):
-    # see also https://stackoverflow.com/a/14483593
-    bool_one = obj.modifiers.new(type="BOOLEAN", name="snippy")
-    bool_one.operation = "DIFFERENCE"
-    bool_one.object = clip
-    bpy.context.scene.objects.active = obj
-    bpy.ops.object.modifier_apply(modifier=bool_one.name)    
-
-def translate(obj, vect):
-    obj.matrix_world *= Matrix.Translation(vect)
-
 def what(obj, text):
-    print("%s\n%s" % (text, '%'*20))
-    get_data = lambda: [
+    print("## %s\n\n```" % text)
+    get_data = lambda: '\n'.join([
         'LOC:'+str(obj.location),
         'WLD:'+str(obj.matrix_world),
         'DIM:'+str(obj.dimensions),
         'BBX:'+' '.join([str(obj.bound_box[i][j]) for i in range(4) for j in range(3)]),
         '    '+' '.join([str(obj.bound_box[i][j]) for i in range(4,8) for j in range(3)]),
         'CO0:'+str(obj.data.vertices[0].co),
-    ]
+    ]).split('\n')
     ans0 = get_data()
     bpyscene.update()
     ans1 = get_data()
     for t0, t1 in zip(ans0, ans1):
-        if t0 == t1:
+        if t0.split() == t1.split():  # ignore whitespace differences
             print('  '+t0)
         else:
             print('- '+t0)
             print('+ '+t1)
-    print()
+    print("```\n")
 
 reset_blend()
 basic_cube = new_obj()

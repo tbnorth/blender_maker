@@ -12,15 +12,21 @@ OREL = {
     'bottom_corners': [
         (0, 0, 0), (0, 1, 0), (1, 0, 0), (1, 1, 0),
     ],
-}   
+}
+
+def ll_ur(obj):
+    bbox = obj.bound_box
+    return bbox[0][0], bbox[0][1], bbox[0][2], bbox[6][0], bbox[6][1], bbox[6][2]
 
 def rel_coords(obj, orel):
+    bpyscene.update()
+    bbox = ll_ur(obj)
     return [
-        (obj.location.x + i[0]*obj.dimensions.x,     
-         obj.location.y + i[1]*obj.dimensions.y,     
-         obj.location.z + i[2]*obj.dimensions.z)
+        (bbox[0] + (bbox[3]-bbox[0]) * i[0],
+         bbox[1] + (bbox[4]-bbox[1]) * i[1],
+         bbox[2] + (bbox[5]-bbox[2]) * i[2])
         for i in OREL[orel]
-    ]    
+    ]
 
 def reset_blend():
 
@@ -59,10 +65,20 @@ def clip_with(obj, clip):
     bool_one.operation = "DIFFERENCE"
     bool_one.object = clip
     bpy.context.scene.objects.active = obj
-    bpy.ops.object.modifier_apply(modifier=bool_one.name)    
+    bpy.ops.object.modifier_apply(modifier=bool_one.name)
+    bpyscene.update()
 
 def translate(obj, vect):
-    obj.matrix_world *= Matrix.Translation(vect)
+    obj.location += Vector(vect)
+
+def move_to(obj, vect):
+    obj.location = Vector(vect)
+
+def scale(obj, vect):
+    if False and isinstance(vect, (int, float)):
+        vect = (vect, vect, vect)
+    obj.matrix_world *= Matrix.Scale(vect, 4)
+    bpyscene.update()
 
 reset_blend()
 basic_cube = new_obj()
@@ -71,9 +87,12 @@ obj_add(basic_cube)
 basic_cube2 = new_obj()
 obj_add(basic_cube2)
 
-translate(basic_cube2, (-0.5, -0.5, -0.5))
+scale(basic_cube2, 0.5)
 
-clip_with(basic_cube, basic_cube2)
+for corner in rel_coords(basic_cube, 'bottom_corners'):
+    move_to(basic_cube2, corner)
+    clip_with(basic_cube, basic_cube2)
+
 
 print(rel_coords(basic_cube, 'bottom_corners'))
 
