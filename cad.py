@@ -14,6 +14,10 @@ OREL = {
     ],
 }
 
+def vmult(a, b):
+    # https://blender.stackexchange.com/a/27759/13707
+    return Vector(x*y for x, y in zip(a, b))
+
 def ll_ur(obj):
     bbox = obj.bound_box
     return bbox[0][0], bbox[0][1], bbox[0][2], bbox[6][0], bbox[6][1], bbox[6][2]
@@ -75,9 +79,9 @@ def move_to(obj, vect):
     obj.location = Vector(vect)
 
 def scale(obj, vect):
-    if False and isinstance(vect, (int, float)):
-        vect = (vect, vect, vect)
-    obj.matrix_world *= Matrix.Scale(vect, 4)
+    if isinstance(vect, (int, float)):
+        vect = Vector((vect, vect, vect))
+    obj.scale = vmult(obj.scale, vect)
     bpyscene.update()
 
 reset_blend()
@@ -87,12 +91,10 @@ obj_add(basic_cube)
 basic_cube2 = new_obj()
 obj_add(basic_cube2)
 
-scale(basic_cube2, 0.5)
+scale(basic_cube2, (0.2, 0.2, 0.5))
 
 for corner in rel_coords(basic_cube, 'bottom_corners'):
     move_to(basic_cube2, corner)
     clip_with(basic_cube, basic_cube2)
 
-
 print(rel_coords(basic_cube, 'bottom_corners'))
-
