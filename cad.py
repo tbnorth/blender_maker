@@ -77,21 +77,11 @@ def obj_add(obj):
     bm.free()
 
 
-def add_to(obj, other):
+def do_bool(obj, other, op):
     # see also https://stackoverflow.com/a/14483593
     bool_one = obj.modifiers.new(type="BOOLEAN", name="snippy")
-    bool_one.operation = "UNION"
+    bool_one.operation = op
     bool_one.object = other
-    bpy.context.scene.objects.active = obj
-    bpy.ops.object.modifier_apply(modifier=bool_one.name)
-    bpyscene.update()
-
-
-def clip_with(obj, clip):
-    # see also https://stackoverflow.com/a/14483593
-    bool_one = obj.modifiers.new(type="BOOLEAN", name="snippy")
-    bool_one.operation = "DIFFERENCE"
-    bool_one.object = clip
     bpy.context.scene.objects.active = obj
     bpy.ops.object.modifier_apply(modifier=bool_one.name)
     bpyscene.update()
@@ -146,7 +136,7 @@ scale(basic_cube2, (0.2, 0.2, 0.5))
 
 for corner in rel_coords(basic_cube, 'bottom_corners'):
     move_to(basic_cube2, corner)
-    clip_with(basic_cube, basic_cube2)
+    do_bool(basic_cube, basic_cube2, 'DIFFERENCE')
 
 for corner in rel_coords(basic_cube, 'top_corners'):
     move_to(basic_cube2, corner)
@@ -155,7 +145,7 @@ for corner in rel_coords(basic_cube, 'top_corners'):
 rotate(basic_cube2, (0, 90, 0))
 for corner in rel_coords(basic_cube, 'xy_faces'):
     move_to(basic_cube2, corner)
-    add_to(basic_cube, basic_cube2)
+    do_bool(basic_cube, basic_cube2, 'UNION')
     rotate(basic_cube2, (90, 0, 0))
 
 rotate(basic_cube2, (-45, 0, 0))
