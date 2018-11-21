@@ -9,8 +9,9 @@ exec(open(r"u:\repo\drifter\cad\cad.py").read())
 exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 """
 
-
 bpyscene = bpy.context.scene
+
+FINAL = True  # use slower code to get details right
 
 OREL = {
     # order these "clockwise from above" (or front, or right) for convenient
@@ -93,6 +94,14 @@ def new_obj(name=None):
 
 
 def obj_add(obj, what='cube', **kwargs):
+    if what == 'unit_cyl':
+        return obj_add(obj, what='cone',
+            diameter1=0.5,
+            diameter2=0.5,
+            depth=1,
+            segments=40,
+            cap_ends=True
+                       )
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     getattr(bmesh.ops, 'create_'+what)(bm, **kwargs)
@@ -134,7 +143,7 @@ def rotate(obj, vect):
 
 def replicate(obj, name=None):
     """Drop a copy of the object"""
-    rep = new_obj(name=name)
+    rep = new_obj(name=(name or obj.name))
     rep.location = obj.location
     rep.rotation_euler = obj.rotation_euler
     rep.scale = obj.scale
@@ -233,32 +242,32 @@ size(pyb, (32, 41, 1))
 translate(pyb, (-120, 0, 0))
 # make ~toroid mount points, but don't attach yet, that would change bounds
 cyl = new_obj()
-obj_add(cyl, what='cone', diameter1=1.5, diameter2=1.5, depth=1, segments=40, cap_ends=True)
-core = replicate(cyl)
-size(core, (2, 2, 2))
-do_bool(cyl, core, 'DIFFERENCE')
+obj_add(cyl, what='unit_cyl')
+size(cyl, (3, 3, 1))
+drill = replicate(cyl)
+size(drill, (2, 2, 2))
+do_bool(cyl, drill, 'DIFFERENCE')
 
-size(core, (.75, .75, 2))  # to drill holes around the edge
+size(drill, (.75, .75, 2))  # to drill holes around the edge
 # rather than diffing out each hole one at a time, merge all holes
 # into `alt` and diff all at once, much cleaner mesh
 alt = new_obj()
 for coord in crange(pyb, (.03, .03, .5), (.97, .97, .5), (2, 16, 1)):
-    move_to(core, coord)
-    if 0:  # slow
-        do_bool(alt, core, "UNION")
+    move_to(drill, coord)
+    if FINAL:  # slow
+        do_bool(alt, drill, "UNION")
     else:
-        replicate(core, "tmp_hole")
+        replicate(drill, "tmp_hole")
 for n, coord in enumerate(crange(pyb, (.03, .97, .5), (.97, .97, .5), (12, 1, 1))):
     if n in (0, 11):
         continue
-    move_to(core, coord)
-    if 0:  # slow
-        do_bool(alt, core, "UNION")
+    move_to(drill, coord)
+    if FINAL:  # slow
+        do_bool(alt, drill, "UNION")
     else:
-        replicate(core, "tmp_hole")
+        replicate(drill, "tmp_hole")
 do_bool(pyb, alt, "DIFFERENCE")
 delete(alt)
-delete(core)
 
 
 # "chip" objects with ccb origin
@@ -302,16 +311,66 @@ move_to(cyl, rel_coords(pyb, (0, 0.95, 0.5)))
 do_bool(pyb, cyl, 'UNION')
 delete(cyl)
 
-cond = new_obj()
+cond = new_obj("Cond_controller")
 obj_add(cond)
 size(cond, (38, 65, 1))
-translate(cond, (-20, 0, 0))
-cap = new_obj()
-obj_add(cap, what='cone', diameter1=3.5, diameter2=3.5, depth=10, segments=40, cap_ends=True)
+translate(cond, (-60, 0, 0))
+cap = new_obj("Cap.")
+obj_add(cap, what='unit_cyl')
+size(cap, (7, 7, 10))
 origin(cap, 'ccb')
 move_to(cap, rel_coords(cond, (0.35, 0.225, 1)))
-replicate(cap)
+cap = replicate(cap)
 scale(cap, (.65, .65, .5))
 move_to(cap, rel_coords(cond, (0.3, 0.12, 1)))
 
+alt = new_obj()
+size(drill, (3, 3, 3))
+for coord in crange(cond, (0.075, 0.05, 0.5), (0.925, 0.95, 0.5), (2, 2, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+size(drill, (.75, .75, 3))
+for coord in crange(cond, (0.925, 0.35, 0.5), (0.925, 0.45, 0.5), (1, 3, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+for coord in crange(cond, (0.1, 0.9, 0.5), (0.45, 0.9, 0.5), (6, 1, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+do_bool(cond, alt, "DIFFERENCE")
+delete(alt)
 
+switch = new_obj("switch")
+obj_add(switch)
+size(switch, (5, 4, 2))
+origin(switch, 'ccb')
+move_to(switch, rel_coords(cond, (.15, .825, 1)))
+knob = replicate(switch)
+size(knob, (1, 0.5, 0.7))
+for coord in crange(switch, (0.3, 0.3, 1), (0.3, 0.7, 1), (1, 2, 1)):
+    move_to(knob, coord)
+    do_bool(switch, knob, "UNION")
+delete(knob)
+
+
+gps = new_obj("GPS")
+obj_add(gps)
+size(gps, (34, 22, 1))
+translate(gps, (-20, 0, 0))
+ant = replicate(gps, "Ant")
+size(ant, (16, 16, 5))
+origin(ant, 'ccb')
+move_to(ant, rel_coords(gps, 'cct'))
+
+alt = new_obj()
+size(drill, (3, 3, 3))
+for coord in crange(gps, (0.07, 0.1, 0.5), (0.07, 0.9, 0.5), (1, 2, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+size(drill, (.75, .75, 3))
+for coord in crange(gps, (0.95, 0.05, 0.5), (0.95, 0.95, 0.5), (1, 9, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+do_bool(gps, alt, "DIFFERENCE")
+delete(alt)
+
+delete(drill)
