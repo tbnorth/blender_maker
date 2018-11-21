@@ -2,7 +2,7 @@ from math import pi, radians
 
 import bpy
 import bmesh
-from mathutils import Matrix, Euler
+from mathutils import Vector, Euler
 
 """
 exec(open(r"u:\repo\drifter\cad\cad.py").read())
@@ -23,6 +23,11 @@ OREL = {
     'top_corners': [(0, 0, 1), (0, 1, 1), (1, 1, 1), (1, 0, 1)],
     'xy_faces': [(0, 0.5, 0.5), (0.5, 1, 0.5), (1, 0.5, 0.5), (0.5, 0, 0.5)],
 }
+
+def _v(*args):
+    if len(args) == 1:
+        return Vector(*args)
+    return Vector(args)
 
 
 def vmult(a, b):
@@ -45,7 +50,7 @@ def rel_coords(obj, orel):
         orel = [orel]
 
     ans = [
-        (
+        obj.matrix_world * _v(
             bbox[0] + (bbox[3] - bbox[0]) * i[0],
             bbox[1] + (bbox[4] - bbox[1]) * i[1],
             bbox[2] + (bbox[5] - bbox[2]) * i[2],
