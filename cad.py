@@ -31,6 +31,7 @@ def vmult(a, b):
 
 
 def ll_ur(obj):
+    bpyscene.update()
     bbox = obj.bound_box
     return bbox[0][0], bbox[0][1], bbox[0][2], bbox[6][0], bbox[6][1], bbox[6][2]
 
@@ -199,9 +200,14 @@ reset_blend()
 pyb = new_obj()
 obj_add(pyb)
 size(pyb, (40, 60, 1))
-
+print(rel_coords(pyb, 'cct'))
+translate(pyb, (-20, 0, 0))
+print(rel_coords(pyb, 'cct'))
+bpyscene.update()
+print(rel_coords(pyb, 'cct'))
 chip = new_obj()
 obj_add(chip)
 size(chip, (11, 11, 1))
 origin(chip, 'ccb')
 move_to(chip, rel_coords(pyb, 'cct'))
+print(ll_ur(pyb))
