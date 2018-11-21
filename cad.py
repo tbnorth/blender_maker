@@ -81,8 +81,10 @@ def reset_blend():
             bpy_data_iter.remove(id_data)
 
 
-def new_obj(name="Obj"):
+def new_obj(name=None):
     # Create an empty mesh and the object.
+    if name is None:
+        name = "Obj"
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     bpyscene.objects.link(obj)
@@ -130,9 +132,9 @@ def rotate(obj, vect):
     obj.rotation_euler = Euler((old[0] + eul[0], old[1] + eul[1], old[2] + eul[2]))
 
 
-def replicate(obj):
+def replicate(obj, name=None):
     """Drop a copy of the object"""
-    rep = new_obj()
+    rep = new_obj(name=name)
     rep.location = obj.location
     rep.rotation_euler = obj.rotation_euler
     rep.scale = obj.scale
@@ -212,28 +214,86 @@ def crange(obj, start, end, steps):
     ans = []
     start = rel_coords(obj, start)
     end = rel_coords(obj, end)
+    print(start, end, steps)
     for i in range(steps[0]):
         for j in range(steps[1]):
             for k in range(steps[2]):
                 ans.append(_v(
-                    start[0]+(end[0]-start[0])*(i/steps[0]),
-                    start[1]+(end[1]-start[1])*(j/steps[1]),
-                    start[2]+(end[2]-start[2])*(k/steps[2]),
+                    start[0]+(end[0]-start[0])*(i/max(1, steps[0]-1)),
+                    start[1]+(end[1]-start[1])*(j/max(1, steps[1]-1)),
+                    start[2]+(end[2]-start[2])*(k/max(1, steps[2]-1)),
                 ))
     return ans
 
 reset_blend()
 
-pyb = new_obj()
+pyb = new_obj("PyBoard")
 obj_add(pyb)
 size(pyb, (32, 41, 1))
-translate(pyb, (-20, 0, 0))
+translate(pyb, (-120, 0, 0))
+# make ~toroid mount points, but don't attach yet, that would change bounds
 cyl = new_obj()
 obj_add(cyl, what='cone', diameter1=1.5, diameter2=1.5, depth=1, segments=40, cap_ends=True)
 core = replicate(cyl)
 size(core, (2, 2, 2))
 do_bool(cyl, core, 'DIFFERENCE')
+
+size(core, (.75, .75, 2))  # to drill holes around the edge
+# rather than diffing out each hole one at a time, merge all holes
+# into `alt` and diff all at once, much cleaner mesh
+alt = new_obj()
+for coord in crange(pyb, (.03, .03, .5), (.97, .97, .5), (2, 16, 1)):
+    move_to(core, coord)
+    if 0:  # slow
+        do_bool(alt, core, "UNION")
+    else:
+        replicate(core, "tmp_hole")
+for n, coord in enumerate(crange(pyb, (.03, .97, .5), (.97, .97, .5), (12, 1, 1))):
+    if n in (0, 11):
+        continue
+    move_to(core, coord)
+    if 0:  # slow
+        do_bool(alt, core, "UNION")
+    else:
+        replicate(core, "tmp_hole")
+do_bool(pyb, alt, "DIFFERENCE")
+delete(alt)
 delete(core)
+
+
+# "chip" objects with ccb origin
+chip = new_obj("CPU")
+obj_add(chip)
+size(chip, (11, 11, 1))
+origin(chip, 'ccb')
+move_to(chip, rel_coords(pyb, 'cct'))
+base = replicate(chip, "reset")
+move_to(base, rel_coords(pyb, (.25, .25, 1)))
+size(base, (3, 2, 1))
+knob = replicate(base)
+size(knob, (1.2, 1, 1))
+move_to(knob, rel_coords(base, 'cct'))
+do_bool(base, knob, "UNION")
+delete(knob)
+base = replicate(base, "user")
+move_to(base, rel_coords(pyb, (.45, .25, 1)))
+for n, coord in enumerate(crange(pyb, (.375, 0.02, 1), (.375, 0.2, 1), (1, 4, 1))):
+    led = replicate(chip, "LED")
+    if n >= 2:
+        rotate(led, (0, 0, 90))
+    size(led, (0.5, 0.7, 0.5))
+    move_to(led, coord)
+
+# with cfb origin
+chip = replicate(chip, "USB")
+origin(chip, 'cfb')
+move_to(chip, rel_coords(pyb, (.2, 0, 1)))
+size(chip, (6, 4, 2))
+chip = replicate(chip, "uSD")
+move_to(chip, rel_coords(pyb, (.6, 0, 1)))
+size(chip, (11, 5, 2))
+
+# now add the ~toroid mount points
 origin(cyl, OREL['lcc']+_v(0.1, 0, 0))
 move_to(cyl, rel_coords(pyb, (1, 0.05, 0.5)))
 do_bool(pyb, cyl, 'UNION')
@@ -242,36 +302,16 @@ move_to(cyl, rel_coords(pyb, (0, 0.95, 0.5)))
 do_bool(pyb, cyl, 'UNION')
 delete(cyl)
 
-# "chip" objects with ccb origin
-chip = new_obj()
-obj_add(chip)
-size(chip, (11, 11, 1))
-origin(chip, 'ccb')
-move_to(chip, rel_coords(pyb, 'cct'))
-replicate(chip)
-move_to(chip, rel_coords(pyb, (.25, .25, 1)))
-size(chip, (3, 2, 1))
-base = replicate(chip)
-knob = replicate(base)
-size(knob, (1.2, 1, 1))
-move_to(knob, rel_coords(base, 'cct'))
-do_bool(base, knob, "UNION")
-delete(knob)
-replicate(base)
-move_to(base, rel_coords(pyb, (.45, .25, 1)))
-for n, coord in enumerate(crange(pyb, (0.425, 0.02, 1), (0.425, 0.25, 1), (1, 4, 1))):
-    led = replicate(chip)
-    if n >= 2:
-        rotate(led, (0, 0, 90))
-    size(led, (0.5, 0.7, 0.5))
-    move_to(led, coord)
-# with cfb origin
-origin(chip, 'cfb')
-move_to(chip, rel_coords(pyb, (.3, 0, 1)))
-size(chip, (6, 4, 2))
-replicate(chip)
-move_to(chip, rel_coords(pyb, (.6, 0, 1)))
-size(chip, (11, 5, 2))
-
+cond = new_obj()
+obj_add(cond)
+size(cond, (38, 65, 1))
+translate(cond, (-20, 0, 0))
+cap = new_obj()
+obj_add(cap, what='cone', diameter1=3.5, diameter2=3.5, depth=10, segments=40, cap_ends=True)
+origin(cap, 'ccb')
+move_to(cap, rel_coords(cond, (0.35, 0.225, 1)))
+replicate(cap)
+scale(cap, (.65, .65, .5))
+move_to(cap, rel_coords(cond, (0.3, 0.12, 1)))
 
 
