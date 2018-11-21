@@ -84,10 +84,10 @@ def reset_blend():
 def new_obj(name="Obj"):
     # Create an empty mesh and the object.
     mesh = bpy.data.meshes.new(name)
-    basic_cube = bpy.data.objects.new(name, mesh)
-    bpyscene.objects.link(basic_cube)
-    bpyscene.objects.active = basic_cube
-    return basic_cube
+    obj = bpy.data.objects.new(name, mesh)
+    bpyscene.objects.link(obj)
+    bpyscene.objects.active = obj
+    return obj
 
 
 def obj_add(obj, what='cube', **kwargs):
@@ -208,6 +208,19 @@ def origin(obj, pos=None):
     bm.to_mesh(obj.data)
     bm.free()
 
+def crange(obj, start, end, steps):
+    ans = []
+    start = rel_coords(obj, start)
+    end = rel_coords(obj, end)
+    for i in range(steps[0]):
+        for j in range(steps[1]):
+            for k in range(steps[2]):
+                ans.append(_v(
+                    start[0]+(end[0]-start[0])*(i/steps[0]),
+                    start[1]+(end[1]-start[1])*(j/steps[1]),
+                    start[2]+(end[2]-start[2])*(k/steps[2]),
+                ))
+    return ans
 
 reset_blend()
 
@@ -229,6 +242,7 @@ move_to(cyl, rel_coords(pyb, (0, 0.95, 0.5)))
 do_bool(pyb, cyl, 'UNION')
 delete(cyl)
 
+# "chip" objects with ccb origin
 chip = new_obj()
 obj_add(chip)
 size(chip, (11, 11, 1))
@@ -245,6 +259,13 @@ do_bool(base, knob, "UNION")
 delete(knob)
 replicate(base)
 move_to(base, rel_coords(pyb, (.45, .25, 1)))
+for n, coord in enumerate(crange(pyb, (0.425, 0.02, 1), (0.425, 0.25, 1), (1, 4, 1))):
+    led = replicate(chip)
+    if n >= 2:
+        rotate(led, (0, 0, 90))
+    size(led, (0.5, 0.7, 0.5))
+    move_to(led, coord)
+# with cfb origin
 origin(chip, 'cfb')
 move_to(chip, rel_coords(pyb, (.3, 0, 1)))
 size(chip, (6, 4, 2))
