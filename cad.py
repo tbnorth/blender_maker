@@ -13,16 +13,19 @@ exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 bpyscene = bpy.context.scene
 
 OREL = {
-    'ccb': (0.5, 0.5, 0),  # center center bottom
-    'cct': (0.5, 0.5, 1),  # center center top
-    'lfb': (0, 0, 0),  # left front bottom
     # order these "clockwise from above" (or front, or right) for convenient
     # placement of parts at an angle, which will be rotated 90 degrees between
     # placements
-    'bottom_corners': [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)],
-    'top_corners': [(0, 0, 1), (0, 1, 1), (1, 1, 1), (1, 0, 1)],
-    'xy_faces': [(0, 0.5, 0.5), (0.5, 1, 0.5), (1, 0.5, 0.5), (0.5, 0, 0.5)],
+    'bottom_corners': [_v(0, 0, 0), _v(0, 1, 0), _v(1, 1, 0), _v(1, 0, 0)],
+    'top_corners': [_v(0, 0, 1), _v(0, 1, 1), _v(1, 1, 1), _v(1, 0, 1)],
+    'xy_faces': [_v(0, 0.5, 0.5), _v(0.5, 1, 0.5), _v(1, 0.5, 0.5), _v(0.5, 0, 0.5)],
 }
+# create all combinations of left/center/right, front/center/back, and
+# bottom/center/top, as 'lfb' (left, front, bottom), 'ccc', etc.
+for x, rx in (('l', 0), ('c', 0.5), ('r', 1)):
+    for y, ry in (('f', 0), ('c', 0.5), ('b', 1)):
+        for z, rz in (('b', 0), ('c', 0.5), ('t', 1)):
+            OREL[x+y+z] = _v(rx, ry, rz)
 
 def _v(*args):
     if len(args) == 1:
@@ -64,32 +67,34 @@ def reset_blend():
 
     for scene in bpy.data.scenes:
         for obj in scene.objects:
-            scene.objects.unlink(obj)
+            pass
+            # scene.objects.unlink(obj)
 
     # only worry about data in the startup scene
     for bpy_data_iter in (
-        bpy.data.objects,
+        # bpy.data.objects,
         bpy.data.meshes,
         bpy.data.lamps,
-        bpy.data.cameras,
+        # bpy.data.cameras,
     ):
         for id_data in bpy_data_iter:
             bpy_data_iter.remove(id_data)
 
 
-def new_obj():
+def new_obj(name="Obj"):
     # Create an empty mesh and the object.
-    mesh = bpy.data.meshes.new('Basic_Cube')
-    basic_cube = bpy.data.objects.new("Basic_Cube", mesh)
+    mesh = bpy.data.meshes.new(name)
+    basic_cube = bpy.data.objects.new(name, mesh)
     bpyscene.objects.link(basic_cube)
     bpyscene.objects.active = basic_cube
     return basic_cube
 
 
-def obj_add(obj):
+def obj_add(obj, what='cube', **kwargs):
     bm = bmesh.new()
     bm.from_mesh(obj.data)
-    bmesh.ops.create_cube(bm, size=1.0)
+    getattr(bmesh.ops, 'create_'+what)(bm, **kwargs)
+    # bmesh.ops.create_cube(bm, size=1.0)
     bm.to_mesh(obj.data)
     bm.free()
 
@@ -99,6 +104,7 @@ def do_bool(obj, other, op):
     bool_one = obj.modifiers.new(type="BOOLEAN", name="snippy")
     bool_one.operation = op
     bool_one.object = other
+    bool_one.solver = 'CARVE'
     bpy.context.scene.objects.active = obj
     bpy.ops.object.modifier_apply(modifier=bool_one.name)
 
@@ -134,6 +140,7 @@ def replicate(obj):
     bm.from_mesh(obj.data)
     bm.to_mesh(rep.data)
     bm.free()
+    return rep
 
 
 def delete(obj):
@@ -179,7 +186,9 @@ def size(obj, vect):
     obj.dimensions = vect
 
 
-def origin(obj, pos):
+def origin(obj, pos=None):
+    if pos is None:
+        pos = _v(0.5, 0.5, 0.5)
     if isinstance(pos, str):
         pos = OREL[pos]
         assert isinstance(pos[0], (int, float)) and len(pos) == 3
@@ -204,15 +213,44 @@ reset_blend()
 
 pyb = new_obj()
 obj_add(pyb)
-size(pyb, (40, 60, 1))
-print(rel_coords(pyb, 'cct'))
+size(pyb, (32, 41, 1))
 translate(pyb, (-20, 0, 0))
-print(rel_coords(pyb, 'cct'))
-bpyscene.update()
-print(rel_coords(pyb, 'cct'))
+cyl = new_obj()
+obj_add(cyl, what='cone', diameter1=1.5, diameter2=1.5, depth=1, segments=40, cap_ends=True)
+core = replicate(cyl)
+size(core, (2, 2, 2))
+do_bool(cyl, core, 'DIFFERENCE')
+delete(core)
+origin(cyl, OREL['lcc']+_v(0.1, 0, 0))
+move_to(cyl, rel_coords(pyb, (1, 0.05, 0.5)))
+do_bool(pyb, cyl, 'UNION')
+rotate(cyl, (0, 0, 180))
+move_to(cyl, rel_coords(pyb, (0, 0.95, 0.5)))
+do_bool(pyb, cyl, 'UNION')
+delete(cyl)
+
 chip = new_obj()
 obj_add(chip)
 size(chip, (11, 11, 1))
 origin(chip, 'ccb')
 move_to(chip, rel_coords(pyb, 'cct'))
-print(ll_ur(pyb))
+replicate(chip)
+move_to(chip, rel_coords(pyb, (.25, .25, 1)))
+size(chip, (3, 2, 1))
+base = replicate(chip)
+knob = replicate(base)
+size(knob, (1.2, 1, 1))
+move_to(knob, rel_coords(base, 'cct'))
+do_bool(base, knob, "UNION")
+delete(knob)
+replicate(base)
+move_to(base, rel_coords(pyb, (.45, .25, 1)))
+origin(chip, 'cfb')
+move_to(chip, rel_coords(pyb, (.3, 0, 1)))
+size(chip, (6, 4, 2))
+replicate(chip)
+move_to(chip, rel_coords(pyb, (.6, 0, 1)))
+size(chip, (11, 5, 2))
+
+
+
