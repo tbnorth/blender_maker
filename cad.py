@@ -1,3 +1,4 @@
+from pprint import pprint
 from math import pi, radians
 
 import bpy
@@ -37,6 +38,8 @@ for x, rx in (('l', 0), ('c', 0.5), ('r', 1)):
         for z, rz in (('b', 0), ('c', 0.5), ('t', 1)):
             OREL[x + y + z] = _v(rx, ry, rz)
 
+TEXT_ALIGN = {i[0]: i for i in
+    ('LEFT', 'RIGHT', 'CENTER', 'TOP', 'BOTTOM')}
 
 def vmult(a, b):
     # https://blender.stackexchange.com/a/27759/13707
@@ -80,6 +83,7 @@ def reset_blend():
     for bpy_data_iter in (
         # bpy.data.objects,
         bpy.data.meshes,
+        bpy.data.curves,
         bpy.data.lamps,
         # bpy.data.cameras,
     ):
@@ -87,12 +91,15 @@ def reset_blend():
             bpy_data_iter.remove(id_data)
 
 
-def new_obj(name=None, parent=None):
+def new_obj(name=None, parent=None, what='mesh'):
     # Create an empty mesh and the object.
     if name is None:
         name = "Obj"
-    mesh = bpy.data.meshes.new(name)
-    obj = bpy.data.objects.new(name, mesh)
+    if what == 'mesh':
+        data = bpy.data.meshes.new(name)
+    else:
+        data = bpy.data.curves.new(name, type='FONT')
+    obj = bpy.data.objects.new(name, data)
     bpyscene.objects.link(obj)
     bpyscene.objects.active = obj
     if parent:
@@ -239,9 +246,7 @@ def origin(obj, pos=None, offset=None):
     bm.free()
 
 
-
-
-def crange(obj, start, end, steps):
+def crange(obj, start, end, steps, enum=False):
     ans = []
     start = rel_coords(obj, start)
     end = rel_coords(obj, end)
@@ -255,6 +260,8 @@ def crange(obj, start, end, steps):
                         start[2] + (end[2] - start[2]) * (k / max(1, steps[2] - 1)),
                     )
                 )
+                if enum:
+                    ans[-1] = ((i, j, k), ans[-1])
     return ans
 
 
@@ -271,7 +278,7 @@ reset_blend()
 pyb = new_obj("PyBoard")
 obj_add(pyb)
 size(pyb, (32, 41, 1))
-translate(pyb, (-120, 0, 0))
+translate(pyb, (-70, 70, 0))
 # make ~toroid mount points, but don't attach yet, that would change bounds
 cyl = new_obj()
 obj_add(cyl, what='unit_cyl')
@@ -280,21 +287,65 @@ drill = replicate(cyl)
 size(drill, (2, 2, 2))
 do_bool(cyl, drill, 'DIFFERENCE')
 
+
+hole = {
+    ('PyBoard', (0, 0, 0), 'pybside'): {'g': 'RC', 'lab': '(A) V+', 'off':(-2, 0.5, 0)},
+    ('PyBoard', (0, 2, 0), 'pybside'): {'g': 'RC', 'lab': '(B) GND', 'off':(-2, 0.5, 0)},
+    ('PyBoard', (0, 4, 0), 'pybside'): {'g': 'RC', 'lab': '(C) Y12', 'off':(-2, 0.5, 0)},
+    ('PyBoard', (0, 6, 0), 'pybside'): {'g': 'RC', 'lab': '(D) Y10', 'off':(-2, 0.5, 0)},
+    ('PyBoard', (0, 7, 0), 'pybside'): {'g': 'RC', 'lab': '(E) Y9', 'off':(-2, 0.5, 0)},
+    ('PyBoard', (0, 14, 0), 'pybside'): {'g': 'RC', 'lab': '(F) X2', 'off': (-4, 0.5, 0)},
+    ('PyBoard', (0, 15, 0), 'pybside'): {'g': 'RC', 'lab': '(G) X1', 'off': (-4, 0.5, 0)},
+    ('PyBoard', (1, 0, 0), 'pybtop'): {'g': 'RC', 'lab': '(H) V+', 'off': (0.5, 2, 0),
+                             'rot': (0, 0, -90)},
+    ('PyBoard', (2, 0, 0), 'pybtop'): {'g': 'RC', 'lab': '(I) GND', 'off': (0.5, 2, 0),
+                             'rot': (0, 0, -90)},
+    ('PyBoard', (1, 15, 0), 'pybside'): {'lab': '(J) V+', 'off': (2, 0.5, 0),
+                             },
+    ('PyBoard', (1, 13, 0), 'pybside'): {'lab': '(K) GND', 'off': (2, 0.5, 0),
+                             },
+    ('PyBoard', (1, 11, 0), 'pybside'): {'lab': '(L) X12', 'off': (2, 0.5, 0),
+                             },
+    ('GPS', (0, 4, 0)): {'lab': 'TX', 'off': (2, 0.5, 0)},
+    ('GPS', (0, 5, 0)): {'lab': 'RX', 'off': (2, 0.5, 0)},
+    ('GPS', (0, 6, 0)): {'lab': 'GND', 'off': (2, 0.5, 0)},
+    ('GPS', (0, 7, 0)): {'lab': 'VIN', 'off': (2, 0.5, 0)},
+    ('rad.adapt', (3, 0, 0)): {'rot': (0, 0, -90), 'lab': 'GND', 'off': (0.5, -3.5, 0)},
+    ('rad.adapt', (5, 0, 0)): {'rot': (0, 0, -90), 'lab': '+5V', 'off': (0.5, -3.5, 0)},
+    ('rad.adapt', (6, 0, 0)): {'rot': (0, 0, -90), 'lab': 'RX', 'off': (0.5, -3.5, 0)},
+    ('rad.adapt', (7, 0, 0)): {'rot': (0, 0, -90), 'lab': 'TX', 'off': (0.5, -3.5, 0)},
+    ('Cond_controller', (0, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI1', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (1, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI2', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (2, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI3', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (3, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI4', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (4, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI5', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (5, 0, 0), 's'): {'g': 'RC', 'rot': (0, 0, -90), 'lab': 'SI6', 'off': (0.5, 7.5, 0)},
+    ('Cond_controller', (0, 0, 0), 'o'): {'lab': 'Temp Out', 'off': (4, 0.5, 0)},
+    ('Cond_controller', (0, 2, 0), 'o'): {'lab': 'Cond Out', 'off': (4, 0.5, 0)},
+    ('Cond_controller', (0, 0, 0), 'p'): {'rot': (0, 0, -90), 'lab': 'GND', 'off': (0.5, -5, 0)},
+    ('Cond_controller', (1, 0, 0), 'p'): {'rot': (0, 0, -90), 'lab': '+5V', 'off': (0.5, -5, 0)},
+
+}
+
 size(drill, (0.75, 0.75, 2))  # to drill holes around the edge
 # rather than diffing out each hole one at a time, merge all holes
 # into `alt` and diff all at once, much cleaner mesh
 alt = new_obj()
-for coord in crange(pyb, (0.03, 0.03, 0.5), (0.97, 0.97, 0.5), (2, 16, 1)):
+for enum, coord in crange(pyb, (0.03, 0.03, 0.5), (0.97, 0.97, 0.5), (2, 16, 1), enum=True):
+    key = (pyb.name, enum, 'pybside')
+    if key in hole:
+        hole[key]['coord'] = coord
     move_to(drill, coord)
     if FINAL:  # slow
         do_bool(alt, drill, "UNION")
         rotate(drill, (0, 0, DR))
     else:
         replicate(drill, "tmp_hole")
-for n, coord in enumerate(
-    crange(pyb, (0.03, 0.97, 0.5), (0.97, 0.97, 0.5), (12, 1, 1))
-):
-    if n in (0, 11):
+for enum, coord in crange(pyb, (0.03, 0.97, 0.5), (0.97, 0.97, 0.5), (12, 1, 1), enum=True):
+    key = (pyb.name, enum, 'pybtop')
+    if key in hole:
+        hole[key]['coord'] = coord
+    if enum[0] in (0, 11):
         continue
     move_to(drill, coord)
     if FINAL:  # slow
@@ -350,7 +401,7 @@ delete(cyl)
 cond = new_obj("Cond_controller")
 obj_add(cond)
 size(cond, (38, 65, 1))
-translate(cond, (-60, 0, 0))
+translate(cond, (-70, 0, 0))
 cap = new_obj("Cap.", parent=cond)
 obj_add(cap, what='unit_cyl')
 size(cap, (7, 7, 10))
@@ -366,11 +417,27 @@ for coord in crange(cond, (0.075, 0.05, 0.5), (0.925, 0.95, 0.5), (2, 2, 1)):
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
 size(drill, (0.75, 0.75, 3))
-for coord in crange(cond, (0.925, 0.35, 0.5), (0.925, 0.45, 0.5), (1, 3, 1)):
+for enum, coord in crange(cond, (0.925, 0.35, 0.5), (0.925, 0.45, 0.5), (1, 3, 1), enum=True):
+    key = (cond.name, enum, 'o')
+    if key in hole:
+        print(key, hole[key], hole[key].get('set'))
+        hole[key]['coord'] = coord
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
     rotate(drill, (0, 0, DR))
-for coord in crange(cond, (0.1, 0.9, 0.5), (0.45, 0.9, 0.5), (6, 1, 1)):
+for enum, coord in crange(cond, (0.1, 0.9, 0.5), (0.45, 0.9, 0.5), (6, 1, 1), enum=True):
+    key = (cond.name, enum, 's')
+    if key in hole:
+        print(key, hole[key], hole[key].get('set'))
+        hole[key]['coord'] = coord
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+    rotate(drill, (0, 0, DR))
+for enum, coord in crange(cond, (0.45, 0.05, 0.5), (0.55, 0.05, 0.5), (2, 1, 1), enum=True):
+    key = (cond.name, enum, 'p')
+    if key in hole:
+        print(key, hole[key], hole[key].get('set'))
+        hole[key]['coord'] = coord
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
     rotate(drill, (0, 0, DR))
@@ -393,7 +460,7 @@ delete(knob)
 gps = new_obj("GPS")
 obj_add(gps)
 size(gps, (34, 22, 1))
-translate(gps, (-20, 0, 0))
+translate(gps, (0, 70, 0))
 ant = replicate(gps, "Ant", parent=gps)
 size(ant, (16, 16, 5))
 origin(ant, 'ccb', offset=0.01)
@@ -405,7 +472,11 @@ for coord in crange(gps, (0.07, 0.1, 0.5), (0.07, 0.9, 0.5), (1, 2, 1)):
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
 size(drill, (0.75, 0.75, 3))
-for coord in crange(gps, (0.95, 0.05, 0.5), (0.95, 0.95, 0.5), (1, 9, 1)):
+for enum, coord in crange(gps, (0.95, 0.05, 0.5), (0.95, 0.95, 0.5), (1, 9, 1), enum=True):
+    key = (gps.name, enum)
+    if key in hole:
+        if hole[key].get('set') in (None, 'gps'):
+            hole[key]['coord'] = coord
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
     rotate(drill, (0, 0, DR))
@@ -416,12 +487,16 @@ delete(alt)
 adpt = new_obj("rad.adapt")
 obj_add(adpt)
 size(adpt, (26, 40, 1))
-translate(adpt, (20, 0, 0))
+translate(adpt, (0, 0, 0))
 
 
 size(drill, (0.75, 0.75, 3))
 alt = new_obj()
-for coord in crange(adpt, (0.07, 0.065, 0.5), (1-0.07, 0.065, 0.5), (10, 1, 1)):
+for enum, coord in crange(adpt, (0.07, 0.065, 0.5), (1-0.07, 0.065, 0.5), (10, 1, 1), enum=True):
+    key = (adpt.name, enum)
+    if key in hole:
+        if hole[key].get('set') in (None, 'gps'):
+            hole[key]['coord'] = coord
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
     rotate(drill, (0, 0, DR))
@@ -451,7 +526,6 @@ move_to(bvl, rel_coords(rad, 'ccc')+_v(0, -2.8, 0))
 do_bool(rad, bvl, "INTERSECT")
 delete(bvl)
 
-# doesn't work to do this at end, rel_coords wrong then?
 cap = new_obj("Cap.", parent=adpt)
 obj_add(cap, what='unit_cyl')
 size(cap, (3, 3, 6.7))
@@ -474,6 +548,22 @@ grn = replicate(led, name='grn')
 move_to(grn, rel_coords(adpt, (1-0.075, 0.95, 1)))
 
 
+pprint(hole)
+keys = sorted(hole, key=lambda k: hole[k]['coord'].y)
+for key in keys:
+    d = hole[key]
+    text = new_obj(d['lab'], what='text')
+    data = text.data
+    data.body = d['lab']
+    x, y = d.get('g', 'LC')
+    data.align_x = TEXT_ALIGN[x]
+    data.align_y = TEXT_ALIGN[y]
+    data.size = 2.5
+    move_to(text, d['coord'] + _v(d.get('off', (0,0,0))))
+    rotate(text, d.get('rot', (0,0,0)))
+
 
 delete(drill)
 bind_parents()
+
+
