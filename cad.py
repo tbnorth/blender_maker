@@ -12,6 +12,7 @@ exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 bpyscene = bpy.context.scene
 
 FINAL = True  # use slower code to get details right
+OFFSET = 0.01  # offset of Freestyle off setting
 
 PARENTS = {}
 
@@ -209,12 +210,16 @@ def size(obj, vect):
     obj.dimensions = vect
 
 
-def origin(obj, pos=None):
+def origin(obj, pos=None, offset=None):
     if pos is None:
         pos = _v(0.5, 0.5, 0.5)
     if isinstance(pos, str):
         pos = OREL[pos]
         assert isinstance(pos[0], (int, float)) and len(pos) == 3
+    if offset:
+        if isinstance(offset, (int, float)):
+            offset = [-offset if i == 0 else offset if i == 1 else 0 for i in pos]
+        pos = pos + _v(offset)  # don't use +=, alters OREL
     minmax = []
     for dim in range(3):
         x = [i.co[dim] for i in obj.data.vertices]
@@ -236,7 +241,6 @@ def crange(obj, start, end, steps):
     ans = []
     start = rel_coords(obj, start)
     end = rel_coords(obj, end)
-    print(start, end, steps)
     for i in range(steps[0]):
         for j in range(steps[1]):
             for k in range(steps[2]):
@@ -292,7 +296,7 @@ delete(alt)
 chip = new_obj("CPU", parent=pyb)
 obj_add(chip)
 size(chip, (11, 11, 1))
-origin(chip, 'ccb')
+origin(chip, 'ccb', offset=OFFSET)
 move_to(chip, rel_coords(pyb, 'cct'))
 base = replicate(chip, "reset")
 move_to(base, rel_coords(pyb, (0.25, 0.25, 1)))
@@ -313,7 +317,7 @@ for n, coord in enumerate(crange(pyb, (0.375, 0.02, 1), (0.375, 0.2, 1), (1, 4, 
 
 # with cfb origin
 chip = replicate(chip, "USB")
-origin(chip, 'cfb')
+origin(chip, 'cfb', offset=OFFSET)
 move_to(chip, rel_coords(pyb, (0.2, 0, 1)))
 size(chip, (6, 4, 2))
 chip = replicate(chip, "uSD")
@@ -321,7 +325,7 @@ move_to(chip, rel_coords(pyb, (0.6, 0, 1)))
 size(chip, (11, 5, 2))
 
 # now add the ~toroid mount points
-origin(cyl, OREL['lcc'] + _v(0.1, 0, 0))
+origin(cyl, 'lcc', offset=-0.1)
 move_to(cyl, rel_coords(pyb, (1, 0.05, 0.5)))
 do_bool(pyb, cyl, 'UNION')
 rotate(cyl, (0, 0, 180))
@@ -336,7 +340,7 @@ translate(cond, (-60, 0, 0))
 cap = new_obj("Cap.", parent=cond)
 obj_add(cap, what='unit_cyl')
 size(cap, (7, 7, 10))
-origin(cap, 'ccb')
+origin(cap, 'ccb', offset=0.01)
 move_to(cap, rel_coords(cond, (0.35, 0.225, 1)))
 cap = replicate(cap)
 scale(cap, (0.65, 0.65, 0.5))
@@ -360,7 +364,7 @@ delete(alt)
 switch = new_obj("switch", parent=cond)
 obj_add(switch)
 size(switch, (5, 4, 2))
-origin(switch, 'ccb')
+origin(switch, 'ccb', offset=0.01)
 move_to(switch, rel_coords(cond, (0.15, 0.825, 1)))
 knob = replicate(switch)
 size(knob, (1, 0.5, 0.7))
@@ -376,7 +380,7 @@ size(gps, (34, 22, 1))
 translate(gps, (-20, 0, 0))
 ant = replicate(gps, "Ant", parent=gps)
 size(ant, (16, 16, 5))
-origin(ant, 'ccb')
+origin(ant, 'ccb', offset=0.01)
 move_to(ant, rel_coords(gps, 'cct'))
 
 alt = new_obj()
