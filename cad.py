@@ -13,6 +13,7 @@ bpyscene = bpy.context.scene
 
 FINAL = True  # use slower code to get details right
 
+PARENTS = {}
 
 def _v(*args):
     if len(args) == 1:
@@ -85,7 +86,7 @@ def reset_blend():
             bpy_data_iter.remove(id_data)
 
 
-def new_obj(name=None):
+def new_obj(name=None, parent=None):
     # Create an empty mesh and the object.
     if name is None:
         name = "Obj"
@@ -93,6 +94,8 @@ def new_obj(name=None):
     obj = bpy.data.objects.new(name, mesh)
     bpyscene.objects.link(obj)
     bpyscene.objects.active = obj
+    if parent:
+        PARENTS[obj.name] = parent.name
     return obj
 
 
@@ -146,7 +149,7 @@ def rotate(obj, vect):
     obj.rotation_euler = Euler((old[0] + eul[0], old[1] + eul[1], old[2] + eul[2]))
 
 
-def replicate(obj, name=None):
+def replicate(obj, name=None, parent=None):
     """Drop a copy of the object"""
     rep = new_obj(name=(name or obj.name))
     rep.location = obj.location
@@ -156,6 +159,10 @@ def replicate(obj, name=None):
     bm.from_mesh(obj.data)
     bm.to_mesh(rep.data)
     bm.free()
+    if parent:
+        PARENTS[rep.name] = parent.name
+    elif obj.name in PARENTS:
+        PARENTS[rep.name] = PARENTS[obj.name]
     return rep
 
 
@@ -282,7 +289,7 @@ delete(alt)
 
 
 # "chip" objects with ccb origin
-chip = new_obj("CPU")
+chip = new_obj("CPU", parent=pyb)
 obj_add(chip)
 size(chip, (11, 11, 1))
 origin(chip, 'ccb')
@@ -326,7 +333,7 @@ cond = new_obj("Cond_controller")
 obj_add(cond)
 size(cond, (38, 65, 1))
 translate(cond, (-60, 0, 0))
-cap = new_obj("Cap.")
+cap = new_obj("Cap.", parent=cond)
 obj_add(cap, what='unit_cyl')
 size(cap, (7, 7, 10))
 origin(cap, 'ccb')
@@ -350,7 +357,7 @@ for coord in crange(cond, (0.1, 0.9, 0.5), (0.45, 0.9, 0.5), (6, 1, 1)):
 do_bool(cond, alt, "DIFFERENCE")
 delete(alt)
 
-switch = new_obj("switch")
+switch = new_obj("switch", parent=cond)
 obj_add(switch)
 size(switch, (5, 4, 2))
 origin(switch, 'ccb')
@@ -367,7 +374,7 @@ gps = new_obj("GPS")
 obj_add(gps)
 size(gps, (34, 22, 1))
 translate(gps, (-20, 0, 0))
-ant = replicate(gps, "Ant")
+ant = replicate(gps, "Ant", parent=gps)
 size(ant, (16, 16, 5))
 origin(ant, 'ccb')
 move_to(ant, rel_coords(gps, 'cct'))
@@ -385,3 +392,10 @@ do_bool(gps, alt, "DIFFERENCE")
 delete(alt)
 
 delete(drill)
+
+for k, v in PARENTS.items():
+    if k in bpy.data.objects and v in bpy.data.objects:
+        state = bpy.data.objects[k].matrix_world
+        bpy.data.objects[k].parent = bpy.data.objects[v]
+        bpy.data.objects[k].matrix_world = state
+
