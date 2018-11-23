@@ -13,7 +13,7 @@ bpyscene = bpy.context.scene
 
 FINAL = True  # use slower code to get details right
 OFFSET = 0.01  # offset of Freestyle off setting
-
+DR = 7  # rotate drill bit by DR between holes to stop Freestyle drawing tangents
 PARENTS = {}
 
 def _v(*args):
@@ -276,6 +276,7 @@ for coord in crange(pyb, (0.03, 0.03, 0.5), (0.97, 0.97, 0.5), (2, 16, 1)):
     move_to(drill, coord)
     if FINAL:  # slow
         do_bool(alt, drill, "UNION")
+        rotate(drill, (0, 0, DR))
     else:
         replicate(drill, "tmp_hole")
 for n, coord in enumerate(
@@ -286,6 +287,7 @@ for n, coord in enumerate(
     move_to(drill, coord)
     if FINAL:  # slow
         do_bool(alt, drill, "UNION")
+        rotate(drill, (0, 0, DR))
     else:
         replicate(drill, "tmp_hole")
 do_bool(pyb, alt, "DIFFERENCE")
@@ -355,9 +357,11 @@ size(drill, (0.75, 0.75, 3))
 for coord in crange(cond, (0.925, 0.35, 0.5), (0.925, 0.45, 0.5), (1, 3, 1)):
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
+    rotate(drill, (0, 0, DR))
 for coord in crange(cond, (0.1, 0.9, 0.5), (0.45, 0.9, 0.5), (6, 1, 1)):
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
+    rotate(drill, (0, 0, DR))
 do_bool(cond, alt, "DIFFERENCE")
 delete(alt)
 
@@ -392,6 +396,7 @@ size(drill, (0.75, 0.75, 3))
 for coord in crange(gps, (0.95, 0.05, 0.5), (0.95, 0.95, 0.5), (1, 9, 1)):
     move_to(drill, coord)
     do_bool(alt, drill, "UNION")
+    rotate(drill, (0, 0, DR))
 do_bool(gps, alt, "DIFFERENCE")
 delete(alt)
 
