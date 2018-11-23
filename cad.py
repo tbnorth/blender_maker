@@ -11,8 +11,8 @@ exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 
 bpyscene = bpy.context.scene
 
-FINAL = True  # use slower code to get details right
-OFFSET = 0.01  # offset of Freestyle off setting
+FINAL = False  # use slower code to get details right
+OFFSET = 0.00001  # offset of Freestyle off setting
 DR = 7  # rotate drill bit by DR between holes to stop Freestyle drawing tangents
 PARENTS = {}
 
@@ -207,6 +207,8 @@ def test():
 
 
 def size(obj, vect):
+    if isinstance(vect, (int, float)):
+        vect = _v(vect, vect, vect)
     obj.dimensions = vect
 
 
@@ -237,6 +239,8 @@ def origin(obj, pos=None, offset=None):
     bm.free()
 
 
+
+
 def crange(obj, start, end, steps):
     ans = []
     start = rel_coords(obj, start)
@@ -253,6 +257,14 @@ def crange(obj, start, end, steps):
                 )
     return ans
 
+
+def bind_parents():
+    bpyscene.update()
+    for k, v in PARENTS.items():
+        if k in bpy.data.objects and v in bpy.data.objects:
+            state = bpy.data.objects[k].matrix_world
+            bpy.data.objects[k].parent = bpy.data.objects[v]
+            bpy.data.objects[k].matrix_world = state
 
 reset_blend()
 
@@ -400,11 +412,68 @@ for coord in crange(gps, (0.95, 0.05, 0.5), (0.95, 0.95, 0.5), (1, 9, 1)):
 do_bool(gps, alt, "DIFFERENCE")
 delete(alt)
 
+
+adpt = new_obj("rad.adapt")
+obj_add(adpt)
+size(adpt, (26, 40, 1))
+translate(adpt, (20, 0, 0))
+
+
+size(drill, (0.75, 0.75, 3))
+alt = new_obj()
+for coord in crange(adpt, (0.07, 0.065, 0.5), (1-0.07, 0.065, 0.5), (10, 1, 1)):
+    move_to(drill, coord)
+    do_bool(alt, drill, "UNION")
+    rotate(drill, (0, 0, DR))
+do_bool(adpt, alt, "DIFFERENCE")
+delete(alt)
+
+blk = new_obj(name='socket', parent=adpt)
+obj_add(blk)
+size(blk, (2.5, 21, 7))
+origin(blk, 'lfb', offset=OFFSET)
+move_to(blk, rel_coords(adpt, (0, 0.35, 1)))
+replicate(blk)
+origin(blk, 'rfb', offset=OFFSET)
+move_to(blk, rel_coords(adpt, (1, 0.35, 1)))
+
+rad = new_obj('rad', parent=adpt)
+obj_add(rad)
+size(rad, (26, 35, 1))
+
+origin(rad, 'cbb', offset=OFFSET)
+move_to(rad, rel_coords(adpt, 'cbt')+_v(0, 0, blk.dimensions.z))
+bvl = new_obj()
+obj_add(bvl)
+size(bvl, 40)
+rotate(bvl, (0, 0, 45))
+move_to(bvl, rel_coords(rad, 'ccc')+_v(0, -2.8, 0))
+do_bool(rad, bvl, "INTERSECT")
+delete(bvl)
+
+# doesn't work to do this at end, rel_coords wrong then?
+cap = new_obj("Cap.", parent=adpt)
+obj_add(cap, what='unit_cyl')
+size(cap, (3, 3, 6.7))
+origin(cap, 'ccb', offset=0.01)
+move_to(cap, rel_coords(adpt, (0.9, 1, 1)) - _v(0, 35, 0))
+
+d = 2.5
+led = new_obj(name='red', parent=adpt)
+obj_add(led, what='unit_cyl')
+size(led, (d, d, 4))
+top = new_obj()
+obj_add(top, what='uvsphere', u_segments=40, v_segments=40, diameter=1)
+size(top, d-OFFSET)
+move_to(top, rel_coords(led, 'cct'))
+do_bool(led, top, "UNION")
+delete(top)
+origin(led, 'ccb', offset=OFFSET)
+move_to(led, rel_coords(adpt, (0.075, 0.95, 1)))
+grn = replicate(led, name='grn')
+move_to(grn, rel_coords(adpt, (1-0.075, 0.95, 1)))
+
+
+
 delete(drill)
-
-for k, v in PARENTS.items():
-    if k in bpy.data.objects and v in bpy.data.objects:
-        state = bpy.data.objects[k].matrix_world
-        bpy.data.objects[k].parent = bpy.data.objects[v]
-        bpy.data.objects[k].matrix_world = state
-
+bind_parents()
