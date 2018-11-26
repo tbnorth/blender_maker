@@ -12,10 +12,11 @@ exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 
 bpyscene = bpy.context.scene
 
-FINAL = False  # use slower code to get details right
+FINAL = True  # use slower code to get details right
 OFFSET = 0.00001  # offset of Freestyle off setting
 DR = 7  # rotate drill bit by DR between holes to stop Freestyle drawing tangents
 PARENTS = {}
+MATERIALS = ['White']
 
 def _v(*args):
     if len(args) == 1:
@@ -85,6 +86,7 @@ def reset_blend():
         bpy.data.meshes,
         bpy.data.curves,
         bpy.data.lamps,
+        bpy.data.groups,
         # bpy.data.cameras,
     ):
         for id_data in bpy_data_iter:
@@ -102,8 +104,12 @@ def new_obj(name=None, parent=None, what='mesh'):
     obj = bpy.data.objects.new(name, data)
     bpyscene.objects.link(obj)
     bpyscene.objects.active = obj
+    if not isinstance(parent, (str, None.__class__)):
+        parent = parent.name
     if parent:
-        PARENTS[obj.name] = parent.name
+        PARENTS[obj.name] = parent
+    for material in MATERIALS:
+        obj.data.materials.append(bpy.data.materials[material])
     return obj
 
 
@@ -267,11 +273,23 @@ def crange(obj, start, end, steps, enum=False):
 
 def bind_parents():
     bpyscene.update()
+    group = {}
+    for v in set(PARENTS.values()):
+        g = bpy.data.groups.new(v)
+        group[v] = g.name  # catch .001 appended if there's a clash
+        # add root (parent) object to group
+        g.objects.link(bpy.data.objects[v])
     for k, v in PARENTS.items():
         if k in bpy.data.objects and v in bpy.data.objects:
-            state = bpy.data.objects[k].matrix_world
-            bpy.data.objects[k].parent = bpy.data.objects[v]
-            bpy.data.objects[k].matrix_world = state
+            child = bpy.data.objects[k]
+            parent = bpy.data.objects[v]
+            state = child.matrix_world
+            child.parent = parent
+            child.matrix_world = state
+            if child.type != 'FONT':
+                bpy.data.groups[group[v]].objects.link(child)
+
+
 
 reset_blend()
 
@@ -548,11 +566,13 @@ grn = replicate(led, name='grn')
 move_to(grn, rel_coords(adpt, (1-0.075, 0.95, 1)))
 
 
-pprint(hole)
 keys = sorted(hole, key=lambda k: hole[k]['coord'].y)
+text_group = bpy.data.groups.new("Text")
+MATERIALS[:] = ["Text"]
 for key in keys:
     d = hole[key]
-    text = new_obj(d['lab'], what='text')
+    text = new_obj(d['lab'], what='text', parent=key[0])
+    text_group.objects.link(text)
     data = text.data
     data.body = d['lab']
     x, y = d.get('g', 'LC')
