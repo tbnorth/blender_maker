@@ -10,7 +10,7 @@ exec(open(r"u:\repo\drifter\cad\cad.py").read())
 exec(open(r"/home/tbrown/t/Proj/blender_maker/cad.py").read())
 """
 
-bpyscene = bpy.context.scene
+bpyscene = bpy.context.collection
 
 FINAL = True  # use slower code to get details right
 OFFSET = 0.00001  # offset of Freestyle off setting
@@ -48,7 +48,7 @@ def vmult(a, b):
 
 
 def ll_ur(obj):
-    bpyscene.update()
+    bpy.context.scene.update()
     bbox = obj.bound_box
     return bbox[0][0], bbox[0][1], bbox[0][2], bbox[6][0], bbox[6][1], bbox[6][2]
 
@@ -63,7 +63,7 @@ def rel_coords(obj, orel):
 
     ans = [
         obj.matrix_world
-        * _v(
+        @ _v(
             bbox[0] + (bbox[3] - bbox[0]) * i[0],
             bbox[1] + (bbox[4] - bbox[1]) * i[1],
             bbox[2] + (bbox[5] - bbox[2]) * i[2],
@@ -85,8 +85,8 @@ def reset_blend():
         # bpy.data.objects,
         bpy.data.meshes,
         bpy.data.curves,
-        bpy.data.lamps,
-        bpy.data.groups,
+        bpy.data.lights,
+        bpy.data.collections,
         # bpy.data.cameras,
     ):
         for id_data in bpy_data_iter:
@@ -103,7 +103,8 @@ def new_obj(name=None, parent=None, what='mesh'):
         data = bpy.data.curves.new(name, type='FONT')
     obj = bpy.data.objects.new(name, data)
     bpyscene.objects.link(obj)
-    bpyscene.objects.active = obj
+    # bpyscene.objects.active = obj
+    bpy.context.view_layer.objects.active = obj
     if not isinstance(parent, (str, None.__class__)):
         parent = parent.name
     if parent:
@@ -137,8 +138,9 @@ def do_bool(obj, other, op):
     bool_one = obj.modifiers.new(type="BOOLEAN", name="snippy")
     bool_one.operation = op
     bool_one.object = other
-    bool_one.solver = 'CARVE'
-    bpy.context.scene.objects.active = obj
+    # bool_one.solver = 'CARVE'
+    bpy.context.view_layer.objects.active = obj
+    # bpy.context.render_layer.objects.active = obj
     bpy.ops.object.modifier_apply(modifier=bool_one.name)
 
 
@@ -272,10 +274,10 @@ def crange(obj, start, end, steps, enum=False):
 
 
 def bind_parents():
-    bpyscene.update()
+    bpy.context.scene.update()
     group = {}
     for v in set(PARENTS.values()):
-        g = bpy.data.groups.new(v)
+        g = bpy.data.collections.new(v)
         group[v] = g.name  # catch .001 appended if there's a clash
         # add root (parent) object to group
         g.objects.link(bpy.data.objects[v])
@@ -287,7 +289,7 @@ def bind_parents():
             child.parent = parent
             child.matrix_world = state
             if child.type != 'FONT':
-                bpy.data.groups[group[v]].objects.link(child)
+                bpy.data.collections[group[v]].objects.link(child)
 
 
 
@@ -567,7 +569,7 @@ move_to(grn, rel_coords(adpt, (1-0.075, 0.95, 1)))
 
 
 keys = sorted(hole, key=lambda k: hole[k]['coord'].y)
-text_group = bpy.data.groups.new("Text")
+text_group = bpy.data.collections.new("Text")
 MATERIALS[:] = ["Text"]
 for key in keys:
     d = hole[key]
