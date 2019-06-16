@@ -48,7 +48,7 @@ def vmult(a, b):
 
 
 def ll_ur(obj):
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
     bbox = obj.bound_box
     return bbox[0][0], bbox[0][1], bbox[0][2], bbox[6][0], bbox[6][1], bbox[6][2]
 
@@ -274,7 +274,7 @@ def crange(obj, start, end, steps, enum=False):
 
 
 def bind_parents():
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
     group = {}
     for v in set(PARENTS.values()):
         g = bpy.data.collections.new(v)
