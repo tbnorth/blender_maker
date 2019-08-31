@@ -1,3 +1,5 @@
+"""just some probes for information"""
+
 import bpy
 import bmesh
 from mathutils import Matrix, Vector
